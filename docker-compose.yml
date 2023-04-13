@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  backend:
+    image: my-nestjs-image
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      AIRTABLE_API_KEY: $AIRTABLE_API_KEY
+      BASE_ID: $BASE_ID
+    ports:
+      - "3000:3000"
+  frontend:
+    image: my-react-image
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
