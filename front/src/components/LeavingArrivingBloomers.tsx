@@ -16,24 +16,30 @@ interface Mission {
 }
 
 interface BloomerProps {
-  mission: Mission;
+  missions?: Mission[];
+  date: string;
   isLeaving?: boolean;
   isLast: boolean;
 }
 
-const Bloomer: React.FC<BloomerProps> = ({ mission, isLeaving, isLast }) => {
-  const formatDate = (date: string) => {
-    const dateObject = new Date(date);
-    return dateObject.toLocaleDateString("en-GB", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-  }
+const formatDate = (date: string) => {
+  const dateObject = new Date(date);
+  return dateObject.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+const Bloomer: React.FC<BloomerProps> = ({ date, missions = [], isLeaving, isLast }) => {
   return (
     <TimelineListItem leaving={!!isLeaving}>
-      <DateGroup>{formatDate(isLeaving ? mission.endDate : mission.beginDate)}</DateGroup>
-      <Name isLast={isLast}>{mission.freelance.firstname} {mission.freelance.lastname}</Name>
+      <DateGroup>{date}</DateGroup>
+      { 
+        missions.map((mission) => (
+          <Name key={`${isLeaving ? 'leaving' : 'arriving'}-${mission.freelance.firstname}-${mission.freelance.lastname}`} isLast={isLast}>{mission.freelance.firstname} {mission.freelance.lastname}</Name>
+        ))
+      }
     </TimelineListItem>
   );
 }
@@ -50,7 +56,7 @@ const LeavingArrivingBloomers: React.FC = () => {
           throw new Error('Failed to fetch missions data');
         }
         const data = await response.json();
-        setMissions(data.sort((a: Mission, b: Mission) => new Date(a.beginDate).getTime() - new Date(b.beginDate).getTime()));
+        setMissions(data);
       } catch (error) {
         console.error(error);
         // Provide a default dummy array with sample data in case of fetch failure
@@ -75,15 +81,25 @@ const LeavingArrivingBloomers: React.FC = () => {
   const endOfYear = endOfMonth === 0 ? year + 1 : year;
   const endOfNextMonth = new Date(endOfYear, endOfMonth + 1, 0); // Setting the day to 0 gets the last day of the previous month
   
-  const leavingBloomers = missions.filter((mission) => {
-    const endDate = new Date(mission.endDate);
-    return endDate >= now && endDate <= endOfNextMonth;
-  });
+  const groupByDate = (key: 'endDate' | 'beginDate') => missions.filter((mission) => {
+    const date = new Date(mission[key]);
+    return date >= now && date <= endOfNextMonth;
+  }).sort((a: Mission, b: Mission) => new Date(a[key]).getTime() - new Date(b[key]).getTime())
+  .reduce((acc: { [key: string]: Mission[] }, mission: Mission) => {
+    const date = formatDate(mission[key]);
+    acc[date] = acc[date] ? acc[date].concat(mission) : [mission];
+    return acc;
+  }, {});
   
-  const arrivingBloomers = missions.filter((mission) => {
-    const beginDate = new Date(mission.beginDate);
-    return beginDate >= now && beginDate <= endOfNextMonth;
-  });
+  const countBloomers = (bloomers: { [key: string]: Mission[] }): number => {
+    return Object.values(bloomers).flat().length;
+  }
+
+  const leavingBloomers = groupByDate('endDate');
+  const leavingDates = Object.keys(leavingBloomers);
+
+  const arrivingBloomers = groupByDate('beginDate');
+  const arrivingDates = Object.keys(arrivingBloomers);
 
   return (
     <>
@@ -93,23 +109,23 @@ const LeavingArrivingBloomers: React.FC = () => {
             <Close onClick={handleClose}>&times;</Close>
             <Timeline>
             <TimelineTitle>
-              <TitleCount leaving={false}>{arrivingBloomers.length}</TitleCount>
+              <TitleCount leaving={false}>{countBloomers(arrivingBloomers)}</TitleCount>
               Bloomers entrants
             </TimelineTitle>
               <TimelineList>
-                {arrivingBloomers.map((mission, i) => (
-                  <Bloomer key={mission.id} mission={mission} isLast={ i === arrivingBloomers.length - 1 }/>
+                {arrivingDates.map((date: string, i) => (
+                  <Bloomer key={`arriving-${date}`} date={date} missions={arrivingBloomers[date]} isLast={ i === arrivingDates.length - 1 }/>
                 ))}
               </TimelineList>
             </Timeline>
             <Timeline>
             <TimelineTitle>
-            <TitleCount leaving={true}>{leavingBloomers.length}</TitleCount>
+            <TitleCount leaving={true}>{countBloomers(leavingBloomers)}</TitleCount>
               Bloomers sortants
             </TimelineTitle>
-              <TimelineList>
-                {leavingBloomers.map((mission, i) => (
-                  <Bloomer key={mission.id} mission={mission} isLeaving={true} isLast={ i === leavingBloomers.length - 1 }/>
+            <TimelineList>
+                {leavingDates.map((date: string, i) => (
+                  <Bloomer key={`leaving-${date}`} isLeaving={true} date={date} missions={leavingBloomers[date]} isLast={ i === leavingDates.length - 1 }/>
                 ))}
               </TimelineList>
             </Timeline>

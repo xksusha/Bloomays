@@ -78,7 +78,7 @@ export const TitleCount = styled.span<LeavingProps>`
 export const TimelineListItem = styled.li<LeavingProps>`
   /* Set timeline list item styles */
   font-size: 12px;
-  height: 4rem;
+  min-height: 4rem;
   border-left: 1px solid #cacaca;
   position: relative;
   padding-left: 20px;
